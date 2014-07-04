@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+
+<head>
+	<title>Monkey Do!</title>
+</head>
+<script type="text/javascript" src="canvasjs.min.js"></script>
+
+<script language="javascript" type="text/javascript">
+
+  var wsUri = "ws://sockets.mbed.org/ws/emh203/rw";
+  var OutputConsole;
+  websocket = new WebSocket(wsUri);
+  var RxTerminal = [".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".",".","."];
+  var RxTerminalSize = 16;
+  var RxTerminalPtr = 0;
+  var ChartHistory = 64;
+  var dps = []; // dataPoints
+  var DataPointNum = 0;
+  var chart;
+  
+  window.onload = function ()
+  {
+	var i;
+	
+		
+		for(i=0;i<ChartHistory;i++)
+		{
+			dps[i] = ({
+					x: DataPointNum++,
+					y: 25
+					})
+		}
+  
+	
+     chart = new CanvasJS.Chart("chartContainer",{
+			title :{
+				text: "Temperature Data"
+			},	
+
+			 axisY:{ 
+			   title: "Temperature (Degrees C)",
+			   titleFontSize :"16",
+				 },	
+
+			markerType: "circle",
+			
+			 axisX:{ 
+			   title: "DataPoint",
+			   titleFontSize : "16"
+			 },	
+			data: [{
+				type: "spline",
+				dataPoints: dps 
+			}]
+		});
+  
+
+  }
+  
+  function init()
+  {
+  	var i;
+    OutputConsole = document.getElementById("Output");
+
+     InitWebSocket();
+  }
+
+  function SendTestData()
+  {
+
+  }
+
+  function InitWebSocket()
+  {
+    websocket = new WebSocket(wsUri);
+    websocket.onopen = function(evt) { onOpen(evt) };
+    websocket.onclose = function(evt) { onClose(evt) };
+    websocket.onmessage = function(evt) { onMessage(evt) };
+    websocket.onerror = function(evt) { onError(evt) };
+  }
+
+  function onOpen(evt)
+  {
+    writeToScreen("Connected to " + wsUri);
+  }
+
+  function onClose(evt)
+  {
+    writeToScreen("Disconnected from " + wsUri);
+
+  }
+
+  function onMessage(evt)
+  {
+  	//var res = evt.data.split(":",2);
+
+
+	//http://blog.tompawlak.org/split-string-into-tokens-javascript
+
+	res = evt.data.match(/\S+/g)
+	
+  	var Cmd = res[0].trim();
+	var TemperatureString;
+	
+  	switch(Cmd)
+  	{
+  		case "temp":
+				
+				TemperatureString = parseFloat(res[1]).toFixed(1);
+				
+  				writeToScreen("Received Temperature: " + TemperatureString);
+			
+					dps.push({
+					x: DataPointNum,
+					y: parseFloat(res[1])
+					})
+			
+					dps.shift();	
+				
+   			    	DataPointNum++;
+					
+					chart.render();
+					
+  		break;
+
+  		default:
+ 			
+  		break;
+
+  	}
+   
+  }
+
+  function onError(evt)
+  {
+     writeToScreen('<span style="color: red;">ERROR:</span> ' + evt.data);
+     websocket.close();
+  }
+
+  function doSend(message)
+  {
+    writeToScreen("SENT: " + message); 
+    websocket.send(message);
+  }
+
+  function writeToScreen(message)
+  {
+  	  var i;
+  	  var TmpPtr = RxTerminalPtr;
+  	  var MessageBuf = "";
+
+  	  RxTerminal[RxTerminalPtr] = message;
+
+  	  for(i=0;i<RxTerminalSize;i++)
+  	  {
+  	  	MessageBuf = MessageBuf + "<br>" +  RxTerminal[TmpPtr];
+
+  	  	if(TmpPtr == 0)
+  	  	{
+  	  		TmpPtr = RxTerminalSize - 1;
+  	  	}
+  	  	else
+  	  	{
+			TmpPtr--;
+  	  	}
+  	  }
+
+	RxTerminalPtr++;
+
+	if(RxTerminalPtr == RxTerminalSize)
+		RxTerminalPtr = 0;
+  
+    OutputConsole.innerHTML = MessageBuf;
+  }
+
+  window.addEventListener("load", init, false);
+	
+	function mDown(obj) {
+		obj.style.backgroundColor = "#220000";
+		doSend("ssr 0 1");
+	}
+
+	function mUp(obj) {
+		obj.style.backgroundColor="#D94A38";
+		doSend("ssr 0 0");
+	}
+
+</script>
+
+<div id = "wrapper">
+
+	<center>
+	   <div style="border:3px gray;">
+
+		<center>
+		 <h1>MonkeyDo - Data Receiver</h1>
+	<hr>
+
+		 <img src="MonkeyDo.png" width="200" alt="MonkeyDo"></img>
+			 
+		 <div id = "Output" class = "console" style="width:600px;height:360px;border:1px dashed gray;"></div>
+
+		 <div id="chartContainer" style="height: 300px; width:600px;">	</div>
+
+
+		 <h2>A Big Red Button</h2>
+		 <div class="bigredbutton" onmousedown="mDown(this)" onmouseup="mUp(this)" style="background-color:#D94A38; width:100px;height:100px;  vertical-align:center;"></div>
+		</center>
+		
+	 </div>
+	 
+	</center>
+</div>
+
+
+
